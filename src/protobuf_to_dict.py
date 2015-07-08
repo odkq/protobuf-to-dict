@@ -36,7 +36,7 @@ def enum_label_name(field, value):
     return field.enum_type.values_by_number[int(value)].name
 
 
-def protobuf_to_dict(pb, type_callable_map=TYPE_CALLABLE_MAP, use_enum_labels=False):
+def protobuf_to_dict(pb, type_callable_map=TYPE_CALLABLE_MAP, use_enum_labels=False, list_empty=False):
     result_dict = {}
     extensions = {}
     for field, value in pb.ListFields():
@@ -49,7 +49,20 @@ def protobuf_to_dict(pb, type_callable_map=TYPE_CALLABLE_MAP, use_enum_labels=Fa
             continue
 
         result_dict[field.name] = type_callable(value)
-
+    if list_empty:
+        attribs = [a for a in dir(pb) if not a.startswith('_') and
+                   a[0].islower()]
+        # XXX: This requires attributes to be lowercase (what they must
+        # anyway)
+        for attrib in attribs:
+            try:
+                if pb.HasField(attrib):
+                    continue
+            except ValueError:      # An array
+                if len(pb.__getattribute__(attrib)) == 0:
+                    result_dict[attrib] = []
+                    continue
+            result_dict[attrib] = None
     if extensions:
         result_dict[EXTENSION_CONTAINER] = extensions
     return result_dict
